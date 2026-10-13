@@ -1,31 +1,31 @@
 # GPU FinOps — Bài phân tích ngắn
 
-**Học viên:** Nguyễn Xuân Trường — 2A202602761. **Nguồn:** dữ liệu mô phỏng BTC, seed=25, snapshot 06/2026.
+**Học viên:** Nguyễn Xuân Trường — 2A202602761. **Nguồn:** dữ liệu mô phỏng của đề bài, seed=25, snapshot 06/2026.
 
 ## 1. Mốc tham chiếu và kết quả
 
-Giữ nguyên dữ liệu, đơn giá và logic M1–M5 của BTC làm mốc. M2 phục vụ 7,533,027 token/ngày: chi phí $48.87 xuống $8.48/ngày, tương ứng $6.488 xuống $1.126/1M-token, giảm 82.6%. M5 tổng hợp $27,133 xuống $14,626/tháng, giảm $12,507 (46.1%). Các khoản này là ước tính của mô hình lab, không phải hóa đơn cloud thực tế.
+Trong bài này, tôi sử dụng dữ liệu và đơn giá đề bài cung cấp, giữ kết quả M1–M5 làm mốc. M2 có 7,533,027 token/ngày: chi phí giảm từ $48.87 xuống $8.48/ngày, tương ứng $6.488 xuống $1.126/1M-token, tiết kiệm 82.6%. M5 giảm từ $27,133 xuống $14,626/tháng, tiết kiệm $12,507 (46.1%). Tôi dùng các kết quả này để phân tích theo yêu cầu bài.
 
-M2 đo unit cost inference với cùng số token; M5 còn chứa training/dev. Không lấy token M2 làm mẫu số cho toàn bộ chi phí M5 vì chưa có sản lượng tương ứng của tất cả workload. Mốc gốc được lưu trong `baseline_reference.json`, extension được ghi riêng.
+Tôi trình bày $/1M-token cho inference ở M2 và chi phí tháng cho M5. M5 có thêm training/dev nên chưa thể dùng token M2 làm mẫu số chung. Mốc ban đầu lưu trong `baseline_reference.json`; hai extension có kết quả riêng.
 
 ## 2. Vì sao tiết kiệm được?
 
-Purchasing đóng góp $10,040/tháng, khoảng 80.3% tổng savings, lớn nhất do chi phí thuê GPU chiếm phần lớn baseline. Job có thể gián đoạn dùng spot với checkpoint/rework; job ổn định dùng reserved. M3 tiết kiệm 39.1%. Cam kết reserved cần xét thời hạn thật của job, không chỉ duty cycle.
+Theo kết quả, chọn cách thuê GPU tiết kiệm nhiều nhất: $10,040/tháng, chiếm 80.3% tổng tiền tiết kiệm. Job có thể gián đoạn dùng spot với checkpoint, job ổn định dùng reserved. M3 tiết kiệm 39.1%. Tôi ưu tiên biện pháp này vì tiền thuê GPU chiếm phần lớn chi phí ban đầu.
 
-Inference tiết kiệm $1,212/tháng. Phân rã theo thứ tự cascade→cache→batch: giảm lần lượt $37.3985, $1.1965, $1.7946/ngày. Cascade dùng model nhỏ cho route đã gán; cache chỉ giảm giá input được cache; batch giảm giá request chịu được độ trễ. Chiết khấu nhân nhau nên đóng góp thay đổi nếu đổi thứ tự phân rã.
+Inference tiết kiệm $1,212/tháng. Tôi tính lần lượt cascade → cache → batch, được $37.3985, $1.1965, $1.7946/ngày. Cascade dùng model nhỏ cho request đã gán tier small; cache giảm giá input đã lưu; batch giảm giá request không cần trả lời ngay. Chiết khấu nhân nhau nên mức đóng góp phụ thuộc thứ tự tính.
 
-`gpu-h100-4` có util 98.2% nhưng MFU 19.4%; `gpu-a10g-1` có util 96.9% nhưng MFU 26.8%. Util đo thời gian hoạt động, MFU đo FLOPs hữu ích so với peak. Memory stalls hoặc overhead có thể khiến GPU bận nhưng hiệu quả thấp; dữ liệu chưa đủ kết luận nguyên nhân. M5 ước tính right-sizing $655/tháng bằng mapping có sẵn. `gpu-h100-5` idle 8 giờ/ngày, lãng phí $20/ngày, tức $600/tháng. Cần kiểm tra throughput và VRAM trước khi đổi GPU.
+M1 chỉ ra hai GPU có util cao nhưng MFU thấp: `gpu-h100-4` và `gpu-a10g-1` (số liệu ở bảng M1 trong report.md). Tôi hiểu util cao là GPU hoạt động nhiều, chưa đồng nghĩa hiệu quả tính toán cao. Chờ bộ nhớ hoặc khởi chạy kernel có thể gây chênh lệch này. M5 ước tính đổi sang GPU nhỏ hơn tiết kiệm $655/tháng; tắt GPU idle tiết kiệm $600/tháng. Khi áp dụng thật cần kiểm tra throughput và VRAM.
 
-## 3. Hai extension trên dữ liệu BTC
+## 3. Hai extension trên dữ liệu đề bài cung cấp
 
-**Ngân sách reasoning:** 201 request reasoning chiếm 8.38% traffic, 16.46% chi phí và 94.04% năng lượng ước tính. Công thức BTC nhân năng lượng reasoning 80 lần ở cùng số token; flag reasoning không tự tăng đơn giá tiền. Cap 5% chuyển 81 request có output dài nhất sang xử lý thường. Nếu output giảm 6 lần (đảo hệ số generator), giảm $0.6804/ngày và 15770.08 Wh/ngày. Giữ nguyên output thì không giảm USD, chỉ giảm 15650.65 Wh theo mô hình. Chưa có confidence/chất lượng để xác thực routing; cap là kịch bản chính sách, không phải kết quả triển khai thực.
+**Ngân sách reasoning:** Tôi tách traffic theo is_reasoning. Có 201 request reasoning, chiếm 8.38% request, 16.46% chi phí và 94.04% năng lượng theo công thức của đề bài. Tôi thử giới hạn 5%, chuyển 81 request có output dài nhất sang xử lý thường. Giả định output giảm 6 lần theo hệ số generator, tiết kiệm $0.6804/ngày và 15770.08 Wh/ngày. Giữ nguyên output thì không tiết kiệm USD, chỉ giảm 15650.65 Wh theo mô hình. Nhận xét của tôi là cần giới hạn reasoning theo nhu cầu tác vụ; dữ liệu hiện chưa có điểm chất lượng để kiểm chứng việc chuyển request.
 
-**Carbon-aware scheduling:** tính watts × GPU-hours với days thật cho 5 job interruptible. Tổng năng lượng 1789.00 kWh. Chuyển từ us-east-1 sang europe-north1 giảm carbon từ 679.820 xuống 53.670 kgCO2e, tiết kiệm 626.150 kg (92.11%). europe-north1 sạch nhất; us-east-wa có điện rẻ nhất và là lựa chọn cân bằng nếu ưu tiên chi phí. Giả định công suất định mức và job có thể di chuyển; chưa tính egress, PUE, checkpoint, latency hay quy định dữ liệu. Tiền điện không cộng thêm vào savings giá thuê GPU.
+**Carbon-aware scheduling:** Tôi tính năng lượng bằng công suất GPU nhân số giờ chạy, số ngày và số GPU cho 5 job có thể gián đoạn. Tổng là 1789.00 kWh. Giả định chuyển từ us-east-1 sang europe-north1, carbon giảm từ 679.820 xuống 53.670 kgCO2e, tiết kiệm 626.150 kg (92.11%). europe-north1 sạch nhất, us-east-wa có điện rẻ nhất. Tôi ghi riêng tiền điện vì giá thuê GPU có thể đã bao gồm khoản này. Phép tính dùng công suất định mức, chưa tính truyền dữ liệu và độ trễ.
 
 ## 4. Ba hành động ưu tiên và giới hạn
 
-1. Rà soát duty cycle/thời hạn, ưu tiên spot + checkpoint và reserved phù hợp vì purchasing có tác động lớn nhất.
-2. Triển khai cascade/cache/batch có kiểm tra chất lượng và latency; tắt idle, thử right-sizing, theo dõi $/1M-token.
-3. Hoàn thiện tag (hiện coverage 92%), ngân sách team, cap reasoning có ngoại lệ, chuyển job linh hoạt sang vùng sạch sau khi kiểm tra ràng buộc.
+1. Kiểm tra thời gian sử dụng và thời hạn job để chọn spot hoặc reserved, vì đây là phần tiết kiệm lớn nhất.
+2. Dùng cascade/cache/batch theo yêu cầu chất lượng và độ trễ, tắt GPU idle và theo dõi $/1M-token.
+3. Bổ sung tag (coverage hiện 91.8%, làm tròn 92%), đặt ngân sách team, giới hạn reasoning và chọn vùng chạy phù hợp.
 
-M3 dùng 30 ngày cho mọi job; carbon dùng days thực. M5 chưa loại trừ khả năng overlap giữa fleet/workloads và các lever; 46.1% là dự báo của mô hình BTC. Hai extension không cộng vào tỷ lệ này. Kết quả tái lập bằng `python missions/run_all.py`; kiểm tra bằng `python verify.py` và `pytest -q`. Chi tiết: `report.md`, `extensions_report.md`, `extensions_results.json`.
+Tôi giữ mô hình M3 dùng 30 ngày cho mọi job; extension carbon dùng days của từng job. Mức 46.1% là dự kiến theo mô hình của đề bài, cần kiểm tra phần tiết kiệm trùng nhau trước khi áp dụng thật. Hai extension không cộng vào tỷ lệ này. Có thể chạy `python missions/run_all.py`, `python verify.py`, `pytest -q` để đối chiếu. Chi tiết phép tính, nguồn và log kiểm tra nằm trong `report.md`, `extensions_report.md`, `extensions_results.json` và `verification.txt`.

@@ -1,5 +1,5 @@
 {
-  "source": "BTC dataset seed=25; estimates using BTC formulas",
+  "source": "Assignment dataset seed=25; estimates using assignment formulas",
   "reasoning": {
     "groups": {
       "normal": {

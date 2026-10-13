@@ -50,7 +50,7 @@ def run(verbose: bool = True) -> dict:
         print(f"savings   : {savings_pct:.1f}%  (cascade + caching + batch)")
         print(f"discount stack (batch + 100% cache): {pricing.discount_stack(batch=True, cache_hit_frac=1.0):.3f} of naive")
         reasoning = reasoning_analysis(rows)
-        print("\nYour Turn 4 - separate reasoning analysis (BTC energy estimates):")
+        print("\nYour Turn 4 - separate reasoning analysis (assignment energy estimates):")
         for name, group in reasoning["groups"].items():
             print(f"  {name}: requests={group['requests']}, traffic={group['traffic_pct']:.2f}%, "
                   f"cost=${group['cost_usd']:.4f}/day ({group['cost_pct']:.2f}%), "
