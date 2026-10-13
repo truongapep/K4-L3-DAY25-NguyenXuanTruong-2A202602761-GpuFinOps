@@ -9,6 +9,7 @@ import os
 from missions._common import num, catalog_by_type, ROOT
 from finops import report, sustainability
 from missions import m1_efficiency_audit, m2_inference_levers, m3_purchasing
+from missions.submission import build_analysis
 
 DAYS = 30
 # one tier down for over-provisioned ("util-lie") GPUs
@@ -53,11 +54,12 @@ def run(verbose: bool = True) -> dict:
     }
 
     md = report.build_report(baseline, optimized, levers, sustainability=sust)
+    md += build_analysis(r1, r2, r3, baseline, optimized, levers)
     out_md = os.path.join(ROOT, "outputs", "report.md")
     os.makedirs(os.path.dirname(out_md), exist_ok=True)
-    with open(out_md, "w") as f:
+    with open(out_md, "w", encoding="utf-8") as f:
         f.write(md)
-    png = report.savings_waterfall(levers, os.path.join(ROOT, "outputs", "savings.png"))
+    png = report.savings_waterfall(levers, os.path.join(ROOT, "outputs", "savings.png"), baseline)
 
     if verbose:
         print("== M5 Optimization Report ==")

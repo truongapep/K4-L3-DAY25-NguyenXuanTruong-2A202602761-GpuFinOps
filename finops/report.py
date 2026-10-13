@@ -35,8 +35,8 @@ def build_report(baseline_usd: float, optimized_usd: float, levers: dict,
     return "\n".join(lines)
 
 
-def savings_waterfall(levers: dict, path: str) -> str:
-    """Write a simple savings bar chart PNG. Returns the path. No-op if matplotlib absent."""
+def savings_waterfall(levers: dict, path: str, baseline_usd: float | None = None) -> str:
+    """Write a waterfall when baseline is supplied; keep the original bar fallback."""
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -45,9 +45,26 @@ def savings_waterfall(levers: dict, path: str) -> str:
         return ""
     names = list(levers.keys())
     vals = [levers[n] for n in names]
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.bar(names, vals, color="#2e548a")
-    ax.set_ylabel("Savings (USD / month)")
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+    if baseline_usd is None:
+        ax.bar(names, vals, color="#2e548a")
+    else:
+        labels = ["Baseline"] + names + ["Optimized"]
+        current = baseline_usd
+        ax.bar(0, current, color="#2e548a")
+        ax.text(0, current, f"${current:,.0f}", ha="center", va="bottom", fontsize=9)
+        for i, value in enumerate(vals, 1):
+            next_value = current - value
+            ax.plot([i-1+0.4, i-0.4], [current, current], color="#888888", linewidth=1)
+            ax.bar(i, value, bottom=next_value, color="#30966b")
+            ax.text(i, current, f"-${value:,.0f}", ha="center", va="bottom", fontsize=9)
+            current = next_value
+        ax.plot([len(vals)+0.4, len(vals)+0.6], [current, current], color="#888888", linewidth=1)
+        ax.bar(len(labels)-1, current, color="#2e548a")
+        ax.text(len(labels)-1, current, f"${current:,.0f}", ha="center", va="bottom", fontsize=9)
+        ax.set_xticks(range(len(labels)), labels)
+        ax.set_ylim(0, baseline_usd * 1.15)
+    ax.set_ylabel("USD / month")
     ax.set_title("GPU cost savings by FinOps lever")
     plt.xticks(rotation=20, ha="right")
     plt.tight_layout()

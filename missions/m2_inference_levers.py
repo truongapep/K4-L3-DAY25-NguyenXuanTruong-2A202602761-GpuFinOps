@@ -6,10 +6,20 @@ from __future__ import annotations
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 from missions._common import load_csv, num
-from finops import pricing
+from finops import pricing, extensions
 
 # $/1M tokens (input, output) — illustrative 2026.
 MODEL_PRICES = {"small": (0.20, 0.40), "large": (3.00, 15.00)}
+
+
+def reasoning_analysis(rows=None, cap_fraction=0.05):
+    """Your Turn 4: separate BTC reasoning costs and simulate an explicit cap.
+
+    Separate from run()'s original baseline metrics and return schema.
+    """
+    if rows is None:
+        rows = load_csv("token_usage.csv")
+    return extensions.reasoning_budget(rows, MODEL_PRICES, cap_fraction)
 
 
 def run(verbose: bool = True) -> dict:
@@ -39,6 +49,16 @@ def run(verbose: bool = True) -> dict:
         print(f"optimized : ${opt_cost:,.2f}/day   ${opt_pm:.3f}/1M-token")
         print(f"savings   : {savings_pct:.1f}%  (cascade + caching + batch)")
         print(f"discount stack (batch + 100% cache): {pricing.discount_stack(batch=True, cache_hit_frac=1.0):.3f} of naive")
+        reasoning = reasoning_analysis(rows)
+        print("\nYour Turn 4 - separate reasoning analysis (BTC energy estimates):")
+        for name, group in reasoning["groups"].items():
+            print(f"  {name}: requests={group['requests']}, traffic={group['traffic_pct']:.2f}%, "
+                  f"cost=${group['cost_usd']:.4f}/day ({group['cost_pct']:.2f}%), "
+                  f"energy={group['energy_wh']:.2f} Wh/day")
+        print(f"  Cap {reasoning['cap_fraction']:.0%}: reroute {reasoning['rerouted_requests']} requests; "
+              f"projected savings=${reasoning['saved_cost_usd']:.4f}/day, "
+              f"{reasoning['saved_energy_wh']:.2f} Wh/day (assumes output /6).")
+        print("  Same output tokens: USD savings=0. Details: outputs/extensions_report.md")
 
     return {
         "baseline_daily": round(base_cost, 2), "optimized_daily": round(opt_cost, 2),
